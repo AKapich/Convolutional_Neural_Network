@@ -6,7 +6,7 @@ We will be taking inspiration from VGG16 and GoogLeNet architectures, since they
 
 The timeline is going to be:
 1. week: learn about CNN networks and techniques used to enchance their performance
-2. week: research exact architectures and implement
+2. week: research exact architectures and implement them
 3. week: test different parameters
 4. week: implement a method for few-shot learning and ensemble strategy. Next, test those methods
 5. week: write a report
