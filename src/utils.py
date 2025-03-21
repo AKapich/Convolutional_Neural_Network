@@ -1,4 +1,3 @@
-
 import torchvision
 from torch.utils.data import DataLoader
 from torchvision import transforms
@@ -9,10 +8,9 @@ def load_data(path: str, batch_size: int = 32, shuffle: bool = False, transform=
     dataset = torchvision.datasets.ImageFolder(root=path, transform=transform)
     return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, pin_memory=True)
 
-
 def evaluate_model(model, dataloader: DataLoader, device: torch.device, max_batches: int = None) -> float:
     """
-    computes accuracy for a model
+    computes accuracy for a model on a test set
     """
     model.eval()
     correct = 0
