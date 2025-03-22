@@ -152,15 +152,18 @@ class ModelTrainer:
             self.training_log.append({"epoch": self.epoch, "loss": epoch_loss, "accuracy": epoch_accuracy, "epoch_f1_score": epoch_f1_score})
             print(f"Epoch {self.epoch}/{total_epochs}, Loss: {epoch_loss:.4f}, Accuracy: {epoch_accuracy:.4f}, F1-score: {epoch_f1_score:.4f}")
             
-            if self.valid_loader:
-                loss_val, acc_val, f1score_val = self.compute_valid_loss()
-                print(f"Valid Loss: {loss_val:.4f}, Accuracy: {acc_val:.4f}, F1-score: {f1score_val:.4f}")
-                self.training_log[-1].update({"loss_val": loss_val,"acc_val": acc_val,"f1score_val": f1score_val})
-                
-            self.save_log()
-            
             model_file_suffix = str(self.epoch)
             self.save_model(model_file_suffix)
+            
+            if self.valid_loader:
+                try:
+                    loss_val, acc_val, f1score_val = self.compute_valid_loss()
+                    print(f"Valid Loss: {loss_val:.4f}, Accuracy: {acc_val:.4f}, F1-score: {f1score_val:.4f}")
+                    self.training_log[-1].update({"loss_val": loss_val,"acc_val": acc_val,"f1score_val": f1score_val})
+                except Exception as e:
+                    print(f"Could not compute validation metrics")
+                    
+            self.save_log()
             
     def compute_valid_loss(self):
         self.model.eval()
@@ -169,9 +172,12 @@ class ModelTrainer:
         total = 0
         all_labels = []
         predictions = []
+        batch_count = 0
 
         with torch.no_grad():
             for images, labels in self.valid_loader:
+                if batch_count % 100 == 0:
+                    print(f"Batch count validation {batch_count}")
                 images, labels = images.to(self.device), labels.to(self.device)
                 outputs = self.model(images)
 
@@ -188,10 +194,14 @@ class ModelTrainer:
                 correct += (predicted == labels).sum().item()
                 all_labels.extend(labels.cpu().tolist())
                 predictions.extend(predicted.cpu().tolist())
+                
+                batch_count += 1
+                if self.max_batches is not None and batch_count >= self.max_batches:
+                    break
 
         avg_loss = val_loss / total if total > 0 else 0
         accuracy = correct / total if total > 0 else 0
-        f1_score = f1_score(all_labels, predictions, average='macro') if total > 0 else 0
+        f1 = f1_score(all_labels, predictions, average='macro') if total > 0 else 0
 
-        return avg_loss, accuracy, f1_score
+        return avg_loss, accuracy, f1
 
