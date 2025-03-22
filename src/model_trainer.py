@@ -4,10 +4,11 @@ import torch.optim as optim
 import json
 import os
 import re
+from sklearn.metrics import f1_score
 
 class ModelTrainer:
     def __init__(self, model, train_loader, device='cpu', optimizer_type='adam', learning_rate=0.001, optimizer_params=None,
-                 loss_function=None, max_batches=None, log_file=None, save_dir='.'):
+                 loss_function=None, max_batches=None, log_file=None, save_dir='.', valid_loader=None):
         """
         model: model to train
         train_loader: dataloader
@@ -29,6 +30,7 @@ class ModelTrainer:
         self.training_log = []
         self.save_dir = save_dir
         self.epoch = 0
+        self.valid_loader = valid_loader
         
         os.makedirs(self.save_dir, exist_ok=True)
         
@@ -109,6 +111,10 @@ class ModelTrainer:
             total = 0
             batch_count = 0
             self.epoch += 1
+            
+            all_labels = []
+            predictions = []
+
 
             for images, labels in self.train_loader:
                 if batch_count % 10 == 0:
@@ -131,18 +137,61 @@ class ModelTrainer:
                 _, predicted = torch.max(main_output, 1)
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
+                all_labels.extend(labels.cpu().tolist())
+                predictions.extend(predicted.cpu().tolist())
+            
                 batch_count += 1
                 if self.max_batches is not None and batch_count >= self.max_batches:
                     break
 
             epoch_loss = loss_val / total if total > 0 else 0
             epoch_accuracy = correct / total if total > 0 else 0
+            epoch_f1_score = f1_score(all_labels, predictions, average='macro') if total > 0 else 0
 
-            self.training_log.append({"epoch": self.epoch, "loss": epoch_loss, "accuracy": epoch_accuracy})
-            print(f"Epoch {self.epoch}/{total_epochs}, Loss: {epoch_loss:.4f}, Accuracy: {epoch_accuracy:.4f}")
 
+            self.training_log.append({"epoch": self.epoch, "loss": epoch_loss, "accuracy": epoch_accuracy, "epoch_f1_score": epoch_f1_score})
+            print(f"Epoch {self.epoch}/{total_epochs}, Loss: {epoch_loss:.4f}, Accuracy: {epoch_accuracy:.4f}, F1-score: {epoch_f1_score:.4f}")
+            
+            if self.valid_loader:
+                loss_val, acc_val, f1score_val = self.compute_valid_loss()
+                print(f"Valid Loss: {loss_val:.4f}, Accuracy: {acc_val:.4f}, F1-score: {f1score_val:.4f}")
+                self.training_log[-1].update({"loss_val": loss_val,"acc_val": acc_val,"f1score_val": f1score_val})
+                
             self.save_log()
             
             model_file_suffix = str(self.epoch)
             self.save_model(model_file_suffix)
+            
+    def compute_valid_loss(self):
+        self.model.eval()
+        val_loss = 0
+        correct = 0
+        total = 0
+        all_labels = []
+        predictions = []
+
+        with torch.no_grad():
+            for images, labels in self.valid_loader:
+                images, labels = images.to(self.device), labels.to(self.device)
+                outputs = self.model(images)
+
+                if isinstance(outputs, tuple):
+                    main_output = outputs[0]
+                else:
+                    main_output = outputs
+
+                loss = self.compute_loss(outputs, labels)
+                val_loss += loss.item() * images.size(0)
+
+                _, predicted = torch.max(main_output, 1)
+                total += labels.size(0)
+                correct += (predicted == labels).sum().item()
+                all_labels.extend(labels.cpu().tolist())
+                predictions.extend(predicted.cpu().tolist())
+
+        avg_loss = val_loss / total if total > 0 else 0
+        accuracy = correct / total if total > 0 else 0
+        f1_score = f1_score(all_labels, predictions, average='macro') if total > 0 else 0
+
+        return avg_loss, accuracy, f1_score
 
