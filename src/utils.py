@@ -1,6 +1,5 @@
 import torchvision
 from torch.utils.data import DataLoader
-from torchvision import transforms
 import torch
 import numpy as np
 gen = torch.Generator()
@@ -13,7 +12,9 @@ def load_data(path: str, batch_size: int = 32, shuffle: bool = False, transform=
     dataset = torchvision.datasets.ImageFolder(root=path, transform=transform)
     return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, pin_memory=True, generator=gen, worker_init_fn=seed)
 
-def evaluate_model(model, dataloader: DataLoader, device: torch.device, max_batches: int = None) -> float:
+def evaluate_model(
+    model, dataloader: DataLoader, device: torch.device, max_batches: int = None
+) -> float:
     """
     computes accuracy for a model on a test set
     """
@@ -26,8 +27,8 @@ def evaluate_model(model, dataloader: DataLoader, device: torch.device, max_batc
             if max_batches:
                 if batch == max_batches:
                     break
-                batch += 1  
-            print(batch, end=' ')
+                batch += 1
+            print(batch, end=" ")
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
             if isinstance(outputs, tuple):
@@ -37,9 +38,11 @@ def evaluate_model(model, dataloader: DataLoader, device: torch.device, max_batc
             correct += (predicted == labels).sum().item()
     return correct / total
 
+
 def save_model(model, file_path):
     torch.save(model.state_dict(), file_path)
     print(f"Model was saved to {file_path}")
+
 
 def load_model(model, file_path, device):
     state_dict = torch.load(file_path, map_location=device)

@@ -9,6 +9,7 @@ from sklearn.metrics import f1_score
 class ModelTrainer:
     def __init__(self, model, train_loader, device=torch.device("cpu"), optimizer_type='adam', learning_rate=0.001, optimizer_params=None,
                  loss_function=None, max_batches=None, log_file=None, save_dir='.', valid_loader=None):
+
         """
         model: model to train
         train_loader: dataloader
@@ -28,6 +29,7 @@ class ModelTrainer:
         self.model = model.to(self.device)
         self.train_loader = train_loader
         self.criterion = loss_function if loss_function is not None else nn.CrossEntropyLoss()
+
         self.max_batches = max_batches
         self.log_file = log_file
         self.training_log = []
@@ -54,7 +56,8 @@ class ModelTrainer:
                     json.dump(self.training_log, file, indent = 4)
                     print(f"Training log saved to {path}")
             except Exception as e:
-                print(f"Could not save training log to {path}: {e}")
+
+                print(f"Could not save training log to {path}")
 
     def save_model(self, model_file_suffix):
         filename = type(self.model).__name__
@@ -63,7 +66,8 @@ class ModelTrainer:
             torch.save(self.model.state_dict(), path)
             print(f"Model saved to {path}")
         except Exception as e:
-            print(f"Could not save model to {path}: {e}")
+
+            print(f"Could not save model to {path}")
 
     def load_checkpoint(self):
         last_epoch = 0
@@ -76,7 +80,9 @@ class ModelTrainer:
                     last_epoch = logs[-1].get("epoch", 0) if logs else 0
                     print(f"Loaded logs from {log_path} with last epoch {last_epoch}")
             else:
-                print(f"File {log_path} does not exist")
+
+                print(f"File {log_path} does not exists")
+
         self.training_log = logs
         self.epoch = last_epoch
 
@@ -88,6 +94,7 @@ class ModelTrainer:
             print(f"Loaded model with epoch {self.epoch} from {checkpoint_file}")
         else:
             print(f"Could not find model checkpoint for epoch {last_epoch} in {self.save_dir}")
+
 
     def compute_loss(self, outputs, labels):
         if isinstance(outputs, tuple):
@@ -134,6 +141,7 @@ class ModelTrainer:
                     loss.backward()
                     self.optimizer.step()
 
+
                 if isinstance(outputs, tuple):
                     main_output = outputs[0]
                 else:
@@ -141,6 +149,7 @@ class ModelTrainer:
 
                 loss_val += loss.item() * images.size(0)
                 max_values, predicted = torch.max(main_output, 1)
+
                 total += labels.size(0)
                 correct += (predicted == labels).sum().item()
                 all_labels.extend(labels.cpu().tolist())
@@ -219,3 +228,4 @@ class ModelTrainer:
         f1 = f1_score(all_labels, predictions, average='macro') if total > 0 else 0
 
         return avg_loss, accuracy, f1
+
