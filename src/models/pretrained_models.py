@@ -47,9 +47,9 @@ class ResNetPretrained(nn.Module):
         return self.model(x)
 
 
-class ResNet32x32(nn.Module):
-    pass
+class CustomResNet(nn.Module):
+    pass  # TODO
 
 
 class ResNet_ResidualBlock:
-    pass
+    pass  # TODO
