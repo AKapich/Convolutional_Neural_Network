@@ -1,24 +1,16 @@
 import torchvision
 from torch.utils.data import DataLoader
 import torch
+import numpy as np
+gen = torch.Generator()
+gen.manual_seed(123)
 
-
-def load_data(
-    path: str,
-    batch_size: int = 32,
-    shuffle: bool = False,
-    transform=None,
-    num_workers: int = 8,
-) -> DataLoader:
+def seed(worker_id):
+    np.random.seed(42 + worker_id)
+    
+def load_data(path: str, batch_size: int = 32, shuffle: bool = False, transform=None, num_workers: int = 8) -> DataLoader:
     dataset = torchvision.datasets.ImageFolder(root=path, transform=transform)
-    return DataLoader(
-        dataset,
-        batch_size=batch_size,
-        shuffle=shuffle,
-        num_workers=num_workers,
-        pin_memory=True,
-    )
-
+    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, pin_memory=True, generator=gen, worker_init_fn=seed)
 
 def evaluate_model(
     model, dataloader: DataLoader, device: torch.device, max_batches: int = None
@@ -39,6 +31,8 @@ def evaluate_model(
             print(batch, end=" ")
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
+            if isinstance(outputs, tuple):
+                outputs = outputs[0]
             _, predicted = torch.max(outputs, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
