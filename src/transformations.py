@@ -125,3 +125,34 @@ def combined_augmentation_transform(
             transforms.ToTensor(),
         ]
     )
+
+
+class Cutout(object):
+    def __init__(self, num_holes, hole_size):
+        self.num_holes = num_holes
+        self.hole_size = hole_size
+
+    def __call__(self, img):
+        h, w = img.size(1), img.size(2)
+        mask = torch.ones((h, w), dtype=torch.float32)
+
+        for _ in range(self.num_holes):
+            y = torch.randint(0, h, (1,)).item()
+            x = torch.randint(0, w, (1,)).item()
+
+            y1 = max(0, y - self.hole_size[0] // 2)
+            y2 = min(h, y + self.hole_size[0] // 2)
+            x1 = max(0, x - self.hole_size[1] // 2)
+            x2 = min(w, x + self.hole_size[1] // 2)
+
+            mask[y1:y2, x1:x2] = 0
+
+        img = img * mask
+        return img
+
+
+def cutout_transform(
+    num_holes: int = 1, hole_size: tuple[int, int] = (8, 8)
+) -> transforms:
+
+    return transforms.Compose([transforms.ToTensor(), Cutout(num_holes, hole_size)])
