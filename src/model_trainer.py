@@ -7,7 +7,7 @@ import re
 from sklearn.metrics import f1_score
 
 class ModelTrainer:
-    def __init__(self, model, train_loader, is_cuda=True, optimizer_type='adam', learning_rate=0.001, optimizer_params=None,
+    def __init__(self, model, train_loader, device=torch.device("cpu"), optimizer_type='adam', learning_rate=0.001, optimizer_params=None,
                  loss_function=None, max_batches=None, log_file=None, save_dir='.', valid_loader=None):
         """
         model: model to train
@@ -22,8 +22,9 @@ class ModelTrainer:
         save_dir: directory to save files (model and log)
         valid_loader: dataloader for validation
         """
-        self.is_cuda = is_cuda
-        self.device = torch.device("cuda" if is_cuda else "cpu")        
+        self.device = device
+        self.is_cuda = True if self.device == torch.device("cuda") else False
+        print(f'is cuda {self.is_cuda}')
         self.model = model.to(self.device)
         self.train_loader = train_loader
         self.criterion = loss_function if loss_function is not None else nn.CrossEntropyLoss()
