@@ -26,13 +26,14 @@ def evaluate_model(model, dataloader: DataLoader, device: torch.device, max_batc
             if max_batches:
                 if batch == max_batches:
                     break
-                batch += 1  
-            print(batch, end=' ')
+            if batch % 10 == 0:
+                print(batch, end=' ')
+            batch += 1 
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
             if isinstance(outputs, tuple):
                 outputs = outputs[0]
-            _, predicted = torch.max(outputs, 1)
+            max_values, predicted = torch.max(outputs, 1)
             total += labels.size(0)
             correct += (predicted == labels).sum().item()
     return correct / total
