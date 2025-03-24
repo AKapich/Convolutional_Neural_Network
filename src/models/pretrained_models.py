@@ -4,13 +4,17 @@ from torch import Tensor
 
 
 class VGG16Pretrained(nn.Module):
-    def __init__(self, num_classes=10, device="cpu"):
+    def __init__(self, num_classes=10, device='cuda', dropout=0.5):
         super(VGG16Pretrained, self).__init__()
         self.device = device
         self.model = vgg16(pretrained=True)
 
         for param in self.model.features.parameters():
             param.requires_grad = False
+            
+        self.model.classifier[2].p = dropout
+        self.model.classifier[5].p = dropout
+        
         num_in_features = self.model.classifier[6].in_features
         self.model.classifier[6] = nn.Linear(num_in_features, num_classes)
         self.model = self.model.to(device)
