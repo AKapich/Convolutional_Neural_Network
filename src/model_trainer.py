@@ -16,7 +16,6 @@ class ModelTrainer:
         learning_rate=0.001,
         weight_decay=0,
         optimizer_params=None,
-        dropout=0,
         loss_function=None,
         max_batches=None,
         log_file=None,
@@ -31,7 +30,6 @@ class ModelTrainer:
         learning_rate: learning rate
         weight_decay: L2 regularization for optimizer
         optimizer_params: additional optimizer parameters
-        dropout: dropout rate
         loss_function: loss function
         max_batches: maximum number of batches to train for one epoch (used for testing)
         log_file: name of the log file (saved in save_dir); if None, log is not saved
@@ -53,9 +51,6 @@ class ModelTrainer:
         self.save_dir = save_dir
         self.epoch = 0
         self.valid_loader = valid_loader
-
-        if hasattr(model, "dropout"):
-            model.dropout.p = dropout
 
         os.makedirs(self.save_dir, exist_ok=True)
 
