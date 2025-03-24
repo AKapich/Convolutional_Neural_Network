@@ -173,3 +173,7 @@ cython_debug/
 /saved_models
 
 /plan
+
+# .ipynb files
+test_data_loading.ipynb
+check_mean.ipynb

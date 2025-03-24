@@ -1,22 +1,37 @@
-import torch 
+import torch
 import torch.nn as nn
 import torch.optim as optim
 import json
 import os
-import re
 from sklearn.metrics import f1_score
 
-class ModelTrainer:
-    def __init__(self, model, train_loader, device=torch.device("cpu"), optimizer_type='adam', learning_rate=0.001, optimizer_params=None,
-                 loss_function=None, max_batches=None, log_file=None, save_dir='.', valid_loader=None):
 
+class ModelTrainer:
+    def __init__(
+        self,
+        model,
+        train_loader,
+        device=torch.device("cpu"),
+        optimizer_type="adam",
+        learning_rate=0.001,
+        weight_decay=0,
+        optimizer_params=None,
+        dropout=0,
+        loss_function=None,
+        max_batches=None,
+        log_file=None,
+        save_dir=".",
+        valid_loader=None,
+    ):
         """
         model: model to train
         train_loader: dataloader
         is_cuda: True if using GPU, otherwise False (CPU)
         optimizer_type: 'adam' or 'sgd'
         learning_rate: learning rate
+        weight_decay: L2 regularization for optimizer
         optimizer_params: additional optimizer parameters
+        dropout: dropout rate
         loss_function: loss function
         max_batches: maximum number of batches to train for one epoch (used for testing)
         log_file: name of the log file (saved in save_dir); if None, log is not saved
@@ -25,10 +40,12 @@ class ModelTrainer:
         """
         self.device = device
         self.is_cuda = True if self.device == torch.device("cuda") else False
-        print(f'is cuda {self.is_cuda}')
+        print(f"is cuda {self.is_cuda}")
         self.model = model.to(self.device)
         self.train_loader = train_loader
-        self.criterion = loss_function if loss_function is not None else nn.CrossEntropyLoss()
+        self.criterion = (
+            loss_function if loss_function is not None else nn.CrossEntropyLoss()
+        )
 
         self.max_batches = max_batches
         self.log_file = log_file
@@ -37,23 +54,31 @@ class ModelTrainer:
         self.epoch = 0
         self.valid_loader = valid_loader
 
+        if hasattr(model, "dropout"):
+            model.dropout.p = dropout
+
         os.makedirs(self.save_dir, exist_ok=True)
 
         if optimizer_params is None:
             optimizer_params = {}
+        optimizer_params["weight_decay"] = weight_decay
 
         trainable_params = filter(lambda p: p.requires_grad, self.model.parameters())
-        if optimizer_type.lower() == 'adam':
-            self.optimizer = optim.Adam(trainable_params, lr=learning_rate, **optimizer_params)
-        elif optimizer_type.lower() == 'sgd':
-            self.optimizer = optim.SGD(trainable_params, lr=learning_rate, **optimizer_params)
+        if optimizer_type.lower() == "adam":
+            self.optimizer = optim.Adam(
+                trainable_params, lr=learning_rate, **optimizer_params
+            )
+        elif optimizer_type.lower() == "sgd":
+            self.optimizer = optim.SGD(
+                trainable_params, lr=learning_rate, **optimizer_params
+            )
 
     def save_log(self):
         if self.log_file is not None:
             path = os.path.join(self.save_dir, self.log_file)
             try:
                 with open(path, "w") as file:
-                    json.dump(self.training_log, file, indent = 4)
+                    json.dump(self.training_log, file, indent=4)
                     print(f"Training log saved to {path}")
             except Exception as e:
 
@@ -93,8 +118,9 @@ class ModelTrainer:
             self.model.load_state_dict(checkpoint)
             print(f"Loaded model with epoch {self.epoch} from {checkpoint_file}")
         else:
-            print(f"Could not find model checkpoint for epoch {last_epoch} in {self.save_dir}")
-
+            print(
+                f"Could not find model checkpoint for epoch {last_epoch} in {self.save_dir}"
+            )
 
     def compute_loss(self, outputs, labels):
         if isinstance(outputs, tuple):
@@ -129,7 +155,7 @@ class ModelTrainer:
                 self.optimizer.zero_grad()
 
                 if scaler is not None:
-                    with torch.amp.autocast(device_type= 'cuda'):
+                    with torch.amp.autocast(device_type="cuda"):
                         outputs = self.model(images)
                         loss = self.compute_loss(outputs, labels)
                     scaler.scale(loss).backward()
@@ -140,7 +166,6 @@ class ModelTrainer:
                     loss = self.compute_loss(outputs, labels)
                     loss.backward()
                     self.optimizer.step()
-
 
                 if isinstance(outputs, tuple):
                     main_output = outputs[0]
@@ -162,20 +187,39 @@ class ModelTrainer:
             if self.is_cuda:
                 torch.cuda.synchronize()
 
-            epoch_loss = loss_val/total if total > 0 else 0
-            epoch_accuracy = correct/total if total > 0 else 0
-            epoch_f1_score = f1_score(all_labels, predictions, average='macro') if total > 0 else 0
+            epoch_loss = loss_val / total if total > 0 else 0
+            epoch_accuracy = correct / total if total > 0 else 0
+            epoch_f1_score = (
+                f1_score(all_labels, predictions, average="macro") if total > 0 else 0
+            )
 
-            self.training_log.append({"epoch": self.epoch, "loss": epoch_loss, "accuracy": epoch_accuracy, "epoch_f1_score": epoch_f1_score})
-            print(f"Epoch {self.epoch}/{total_epochs}, Loss: {epoch_loss:.4f}, Accuracy: {epoch_accuracy:.4f}, F1-score: {epoch_f1_score:.4f}")
+            self.training_log.append(
+                {
+                    "epoch": self.epoch,
+                    "loss": epoch_loss,
+                    "accuracy": epoch_accuracy,
+                    "epoch_f1_score": epoch_f1_score,
+                }
+            )
+            print(
+                f"Epoch {self.epoch}/{total_epochs}, Loss: {epoch_loss:.4f}, Accuracy: {epoch_accuracy:.4f}, F1-score: {epoch_f1_score:.4f}"
+            )
 
             self.save_model(str(self.epoch))
 
             if self.valid_loader:
                 try:
                     loss_val, acc_val, f1score_val = self.compute_valid_loss()
-                    print(f"Valid Loss: {loss_val:.4f}, Accuracy: {acc_val:.4f}, F1-score: {f1score_val:.4f}")
-                    self.training_log[-1].update({"loss_val": loss_val, "acc_val": acc_val, "f1score_val": f1score_val})
+                    print(
+                        f"Valid Loss: {loss_val:.4f}, Accuracy: {acc_val:.4f}, F1-score: {f1score_val:.4f}"
+                    )
+                    self.training_log[-1].update(
+                        {
+                            "loss_val": loss_val,
+                            "acc_val": acc_val,
+                            "f1score_val": f1score_val,
+                        }
+                    )
                 except Exception as e:
                     print(f"Could not compute validation metrics: {e}")
 
@@ -197,7 +241,7 @@ class ModelTrainer:
                 images, labels = images.to(self.device), labels.to(self.device)
 
                 if self.is_cuda:
-                    with torch.amp.autocast(device_type='cuda'):
+                    with torch.amp.autocast(device_type="cuda"):
                         outputs = self.model(images)
                         loss = self.compute_loss(outputs, labels)
                 else:
@@ -223,9 +267,8 @@ class ModelTrainer:
         if self.is_cuda:
             torch.cuda.synchronize()
 
-        avg_loss = val_loss/total if total > 0 else 0
-        accuracy = correct/total if total > 0 else 0
-        f1 = f1_score(all_labels, predictions, average='macro') if total > 0 else 0
+        avg_loss = val_loss / total if total > 0 else 0
+        accuracy = correct / total if total > 0 else 0
+        f1 = f1_score(all_labels, predictions, average="macro") if total > 0 else 0
 
         return avg_loss, accuracy, f1
-
