@@ -12,6 +12,27 @@ def load_data(path: str, batch_size: int = 32, shuffle: bool = False, transform=
     dataset = torchvision.datasets.ImageFolder(root=path, transform=transform)
     return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, pin_memory=True, generator=gen, worker_init_fn=seed)
 
+
+class AugmentedImageFolder(torchvision.datasets.ImageFolder):
+    def __init__(self, root, transform, transform_augment, augment_prob=0.3):
+        super().__init__(root, transform=None)
+        self.transform = transform
+        self.transform_augment = transform_augment
+        self.augment_prob = augment_prob
+
+    def __getitem__(self, index):
+        path, target = self.samples[index]
+        image = self.loader(path)
+        if np.random.random() < self.augment_prob:
+            image = self.transform_augment(image)
+        else:
+            image = self.transform(image)
+        return image, target
+
+def load_data_augmented(path: str,batch_size: int = 32,shuffle: bool = False, transform = None,augmentation_transform = None, augment_prob: float = 0.3, num_workers: int = 8) -> DataLoader:
+    dataset = AugmentedImageFolder(root=path, transform=transform, transform_augment=augmentation_transform, augment_prob=augment_prob)
+    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers,pin_memory=True, generator=gen, worker_init_fn=seed)
+
 def evaluate_model(
     model, dataloader: DataLoader, device: torch.device, max_batches: int = None
 ) -> float:
