@@ -52,7 +52,7 @@ def load_data_augmented(path: str,batch_size: int = 32,shuffle: bool = False, tr
     return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers,pin_memory=True, generator=gen, worker_init_fn=seed)
 
 
-def evaluate_model(model, dataloader, device, max_batches: int = None) -> dict:
+def evaluate_model(model, dataloader, device, max_batches: int = None, metrics_to_compute = ["accuracy", "f1_score", "roc_auc"]) -> dict:
     model.eval()
     all_labels = []
     all_predict = []
@@ -69,11 +69,17 @@ def evaluate_model(model, dataloader, device, max_batches: int = None) -> dict:
             outputs = model(images)
             if isinstance(outputs, tuple):
                 outputs = outputs[0]
-            probs = torch.softmax(outputs, dim=1)
-            preds = torch.argmax(probs, dim=1) 
+            
+            if outputs.ndim == 1:
+                predictions = outputs
+                probabilities = None
+            else:
+                probabilities = torch.softmax(outputs, dim=1)
+                predictions = torch.argmax(probabilities, dim=1)
             all_labels.extend(labels.cpu().numpy())
-            all_predict.extend(preds.cpu().numpy())
-            all_prob.extend(probs.cpu().numpy())
+            all_predict.extend(predictions.cpu().numpy())
+            if probabilities is not None:
+                all_prob.extend(probabilities.cpu().numpy())
             batch += 1
 
     all_labels = np.array(all_labels)
@@ -89,7 +95,6 @@ def evaluate_model(model, dataloader, device, max_batches: int = None) -> dict:
         roc_auc = None
     
     return {"accuracy": acc, "f1_score": f1, "roc_auc": roc_auc}
-
 
 
 def save_model(model, file_path):

@@ -16,7 +16,11 @@ class HardVotingEnsemble(nn.Module):
         all_predictions = []
         with torch.no_grad():
             for model in self.models:
-                output = model(x)
+                if model.__class__.__name__ in ["VGG16Pretrained", "ResNetPretrained"]:
+                    x_input = F.interpolate(x, size=(224, 224), mode='bilinear', align_corners=False)
+                else:
+                    x_input = x
+                output = model(x_input)
                 if isinstance(output, tuple):
                     output = output[0]
                 predictions = torch.argmax(output, dim=1)
@@ -39,7 +43,11 @@ class SoftVotingEnsemble(nn.Module):
         probs_list = []
         with torch.no_grad():
             for model in self.models:
-                output = model(x)
+                if model.__class__.__name__ in ["VGG16Pretrained", "ResNetPretrained"]:
+                    x_input = F.interpolate(x, size=(224, 224), mode='bilinear', align_corners=False)
+                else:
+                    x_input = x
+                output = model(x_input)
                 if isinstance(output, tuple):
                     output = output[0]
                 probs = F.softmax(output, dim=1)
@@ -48,40 +56,4 @@ class SoftVotingEnsemble(nn.Module):
             final_preds = torch.argmax(avg_probs, dim=1)
         return final_preds
 
-class MetaClassifier(nn.Module):
-    def __init__(self, input_dim, num_classes):
-        """
-        :param input_dim: wymiar wejścia (liczba modeli * liczba klas)
-        :param num_classes: liczba wyjściowych klas
-        """
-        super(MetaClassifier, self).__init__()
-        self.fc = nn.Linear(input_dim, num_classes)
-        
-    def forward(self, x):
-        return self.fc(x)
-
-class StackingEnsemble(nn.Module):
-    def __init__(self, models, meta_model):
-        """
-        models: already trained models
-        meta_model: meta classifer
-        """
-        super(StackingEnsemble, self).__init__()
-        self.models = models
-        for model in self.models:
-            model.eval()
-        self.meta_model = meta_model
-
-    def forward(self, x):
-        features = []
-        with torch.no_grad():
-            for model in self.models:
-                output = model(x)
-                if isinstance(output, tuple):
-                    output = output[0]
-                feat = F.softmax(output, dim=1)
-                features.append(feat)
-            all_features = torch.cat(features, dim=1)
-        out_meta = self.meta_model(all_features)
-        return torch.argmax(out_meta, dim=1)
 
