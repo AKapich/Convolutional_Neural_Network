@@ -28,6 +28,23 @@ class AugmentedImageFolder(torchvision.datasets.ImageFolder):
         else:
             image = self.transform(image)
         return image, target
+    
+class AugmentedImageFolderPretrained(AugmentedImageFolder):
+    def __init__(self, root, transform, transform_augment, augment_prob=0.3):
+        super().__init__(root, transform=transform, transform_augment=transform_augment, augment_prob=augment_prob)
+
+    def __getitem__(self, index):
+        path, target = self.samples[index]
+        image = self.loader(path)
+        image = self.transform(image)
+        if np.random.random() < self.augment_prob:
+            image = self.transform_augment(image)
+        return image, target
+
+def load_data_augmented_pretrained(path: str, batch_size: int = 32, shuffle: bool = False, transform=None, augmentation_transform=None, 
+                          augment_prob: float = 0.3, num_workers: int = 8) -> DataLoader:
+    dataset = AugmentedImageFolderPretrained(root=path, transform=transform, transform_augment=augmentation_transform, augment_prob=augment_prob)
+    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
 
 def load_data_augmented(path: str,batch_size: int = 32,shuffle: bool = False, transform = None,augmentation_transform = None, augment_prob: float = 0.3, num_workers: int = 8) -> DataLoader:
     dataset = AugmentedImageFolder(root=path, transform=transform, transform_augment=augmentation_transform, augment_prob=augment_prob)

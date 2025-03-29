@@ -126,9 +126,10 @@ class ModelTrainer:
         else:
             return self.criterion(outputs, labels)
 
-    def train(self, epochs=1):
+    def train(self, epochs=1, epochs_to_save=[5, 10, 15]):
         """
         epochs: number of epochs to run
+        epochs_to_save: list of epochs to save models
         """
         self.model.train()
         total_epochs = self.epoch + epochs
@@ -199,8 +200,9 @@ class ModelTrainer:
             print(
                 f"Epoch {self.epoch}/{total_epochs}, Loss: {epoch_loss:.4f}, Accuracy: {epoch_accuracy:.4f}, F1-score: {epoch_f1_score:.4f}"
             )
-
-            self.save_model(str(self.epoch))
+            
+            if self.epoch in epochs_to_save:
+                self.save_model(str(self.epoch))
 
             if self.valid_loader:
                 try:
