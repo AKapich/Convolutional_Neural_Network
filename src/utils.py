@@ -4,6 +4,7 @@ import torch
 import numpy as np
 gen = torch.Generator()
 gen.manual_seed(123)
+from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 
 def seed(worker_id):
     np.random.seed(42 + worker_id)
@@ -50,32 +51,45 @@ def load_data_augmented(path: str,batch_size: int = 32,shuffle: bool = False, tr
     dataset = AugmentedImageFolder(root=path, transform=transform, transform_augment=augmentation_transform, augment_prob=augment_prob)
     return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers,pin_memory=True, generator=gen, worker_init_fn=seed)
 
-def evaluate_model(
-    model, dataloader: DataLoader, device: torch.device, max_batches: int = None
-) -> float:
-    """
-    computes accuracy for a model on a test set
-    """
+
+def evaluate_model(model, dataloader, device, max_batches: int = None) -> dict:
     model.eval()
-    correct = 0
-    total = 0
+    all_labels = []
+    all_predict = []
+    all_prob = []
     batch = 0
+    
     with torch.no_grad():
         for images, labels in dataloader:
-            if max_batches:
-                if batch == max_batches:
-                    break
+            if max_batches is not None and batch == max_batches:
+                break
             if batch % 10 == 0:
                 print(batch, end=' ')
-            batch += 1 
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
             if isinstance(outputs, tuple):
                 outputs = outputs[0]
-            max_values, predicted = torch.max(outputs, 1)
-            total += labels.size(0)
-            correct += (predicted == labels).sum().item()
-    return correct / total
+            probs = torch.softmax(outputs, dim=1)
+            preds = torch.argmax(probs, dim=1) 
+            all_labels.extend(labels.cpu().numpy())
+            all_predict.extend(preds.cpu().numpy())
+            all_prob.extend(probs.cpu().numpy())
+            batch += 1
+
+    all_labels = np.array(all_labels)
+    all_predict = np.array(all_predict)
+    all_prob = np.array(all_prob)
+    
+    acc = accuracy_score(all_labels, all_predict)
+    f1 = f1_score(all_labels, all_predict, average='macro')
+    
+    try:
+        roc_auc = roc_auc_score(all_labels, all_prob, multi_class='ovr', average='macro')
+    except Exception as e:
+        roc_auc = None
+    
+    return {"accuracy": acc, "f1_score": f1, "roc_auc": roc_auc}
+
 
 
 def save_model(model, file_path):
