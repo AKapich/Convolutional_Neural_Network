@@ -16,7 +16,6 @@ class ModelTrainer:
         learning_rate=0.001,
         weight_decay=0,
         optimizer_params=None,
-        dropout=0,
         loss_function=None,
         max_batches=None,
         log_file=None,
@@ -31,7 +30,6 @@ class ModelTrainer:
         learning_rate: learning rate
         weight_decay: L2 regularization for optimizer
         optimizer_params: additional optimizer parameters
-        dropout: dropout rate
         loss_function: loss function
         max_batches: maximum number of batches to train for one epoch (used for testing)
         log_file: name of the log file (saved in save_dir); if None, log is not saved
@@ -53,9 +51,6 @@ class ModelTrainer:
         self.save_dir = save_dir
         self.epoch = 0
         self.valid_loader = valid_loader
-
-        if hasattr(model, "dropout"):
-            model.dropout.p = dropout
 
         os.makedirs(self.save_dir, exist_ok=True)
 
@@ -131,9 +126,10 @@ class ModelTrainer:
         else:
             return self.criterion(outputs, labels)
 
-    def train(self, epochs=1):
+    def train(self, epochs=1, epochs_to_save=[5, 10, 15]):
         """
         epochs: number of epochs to run
+        epochs_to_save: list of epochs to save models
         """
         self.model.train()
         total_epochs = self.epoch + epochs
@@ -204,8 +200,9 @@ class ModelTrainer:
             print(
                 f"Epoch {self.epoch}/{total_epochs}, Loss: {epoch_loss:.4f}, Accuracy: {epoch_accuracy:.4f}, F1-score: {epoch_f1_score:.4f}"
             )
-
-            self.save_model(str(self.epoch))
+            
+            if self.epoch in epochs_to_save:
+                self.save_model(str(self.epoch))
 
             if self.valid_loader:
                 try:
