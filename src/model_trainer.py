@@ -200,7 +200,7 @@ class ModelTrainer:
             print(
                 f"Epoch {self.epoch}/{total_epochs}, Loss: {epoch_loss:.4f}, Accuracy: {epoch_accuracy:.4f}, F1-score: {epoch_f1_score:.4f}"
             )
-            
+
             if self.epoch in epochs_to_save:
                 self.save_model(str(self.epoch))
 

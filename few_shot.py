@@ -11,6 +11,10 @@ from tqdm import tqdm
 from torchvision import datasets
 import torch.optim as optim
 from easyfsl.utils import sliding_average
+import json
+from sklearn.metrics import f1_score
+from collections import deque
+import numpy as np
 
 
 class PrototypicalNetwork(nn.Module):
@@ -90,6 +94,7 @@ class FewShotTrainer:
         val_loader: DataLoader = None,
         test_loader: DataLoader = None,
         patience: int = 5,
+        moving_avg_window: int = 3,
     ):
         self.model = model
         self.optimizer = optim.Adam(self.model.parameters(), lr=0.001)
@@ -99,8 +104,15 @@ class FewShotTrainer:
         self.val_loader = val_loader
         self.test_loader = test_loader
         self.patience = patience
+
+        # Best metrics
         self.best_val_accuracy = 0.0
+        self.best_val_f1 = 0.0
+
+        # Counters for early stopping
         self.early_stopping_counter = 0
+        self.validation_f1_history = deque(maxlen=moving_avg_window)
+        self.validation_accuracy_history = deque(maxlen=moving_avg_window)
 
     def fit(
         self,
@@ -118,31 +130,54 @@ class FewShotTrainer:
 
         return loss.item()
 
-    def train(self):
+    def train(self, num_epochs: int = 10, log_save_file: str = "few_shot_training_log"):
         log_update_frequency = 10
-        all_loss = []
+        self.training_log = []
 
-        self.model.train()
-        with tqdm(
-            enumerate(self.train_loader), total=len(self.train_loader)
-        ) as tqdm_train:
-            for episode_index, (
-                support_images,
-                support_labels,
-                query_images,
-                query_labels,
-                _,
-            ) in tqdm_train:
-                loss_value = self.fit(
-                    support_images, support_labels, query_images, query_labels
-                )
-                all_loss.append(loss_value)
+        for epoch in range(num_epochs):
+            print(f"Epoch {epoch+1}/{num_epochs}")
+            all_loss = []
 
-                if episode_index % log_update_frequency == 0:
-                    tqdm_train.set_postfix(
-                        loss=sliding_average(all_loss, log_update_frequency)
+            self.model.train()
+            with tqdm(
+                enumerate(self.train_loader), total=len(self.train_loader)
+            ) as tqdm_train:
+                for episode_index, (
+                    support_images,
+                    support_labels,
+                    query_images,
+                    query_labels,
+                    _,
+                ) in tqdm_train:
+                    loss_value = self.fit(
+                        support_images, support_labels, query_images, query_labels
                     )
-        self.validate()
+                    all_loss.append(loss_value)
+
+                    if episode_index % log_update_frequency == 0:
+                        tqdm_train.set_postfix(
+                            loss=sliding_average(all_loss, log_update_frequency)
+                        )
+
+            val_accuracy, val_f1 = self.validate()
+            epoch_log = {
+                "epoch": epoch + 1,
+                "loss": sliding_average(
+                    all_loss, min(log_update_frequency, len(all_loss))
+                ),
+                "val_accuracy": val_accuracy,
+                "val_f1_score": val_f1,
+                "best_val_accuracy": self.best_val_accuracy,
+                "best_val_f1_score": self.best_val_f1,
+            }
+            self.training_log.append(epoch_log)
+
+            with open(f"{log_save_file}_{epoch}.json", "w") as json_file:
+                json.dump(self.training_log, json_file, indent=4)
+
+            if self.early_stopping_counter >= self.patience:
+                print(f"Training stopped after {epoch+1} epochs due to early stopping.")
+                break
 
     def evaluate_on_one_task(
         self,
@@ -178,10 +213,10 @@ class FewShotTrainer:
                 query_labels,
                 class_ids,
             ) in tqdm(enumerate(self.test_loader), total=len(self.test_loader)):
-                support_images = support_images.cpu()
-                support_labels = support_labels.cpu()
-                query_images = query_images.cpu()
-                query_labels = query_labels.cpu()
+                support_images = support_images.to(self.device)
+                support_labels = support_labels.to(self.device)
+                query_images = query_images.to(self.device)
+                query_labels = query_labels.to(self.device)
 
                 correct, total = self.evaluate_on_one_task(
                     support_images,
@@ -197,48 +232,74 @@ class FewShotTrainer:
             f"Model tested on {len(self.test_loader)} tasks. Accuracy: {(100 * correct_predictions/total_predictions):.2f}%"
         )
 
-    def validate(self) -> None:
+    def validate(self) -> bool:
         """
-        Evaluate the model on the validation set after each training epoch.
+        Evaluate model on validation set and monitor both Accuracy & F1-score.
+        Uses moving average for early stopping.
         """
         total_predictions = 0
         correct_predictions = 0
+        all_true_labels = []
+        all_predicted_labels = []
 
         self.model.eval()
         with torch.no_grad():
-            for episode_index, (
+            for _, (
                 support_images,
                 support_labels,
                 query_images,
                 query_labels,
                 _,
-            ) in tqdm(enumerate(self.val_loader), total=len(self.val_loader)):
-                support_images = support_images.cpu()
-                support_labels = support_labels.cpu()
-                query_images = query_images.cpu()
-                query_labels = query_labels.cpu()
+            ) in enumerate(self.val_loader):
+                support_images = support_images.to(self.device)
+                support_labels = support_labels.to(self.device)
+                query_images = query_images.to(self.device)
+                query_labels = query_labels.to(self.device)
 
-                correct, total = self.evaluate_on_one_task(
-                    support_images,
-                    support_labels,
-                    query_images,
-                    query_labels,
-                )
+                predicted_labels = torch.max(
+                    self.model(support_images, support_labels, query_images)
+                    .detach()
+                    .data,
+                    1,
+                )[
+                    1
+                ]  # Get predicted class indices
 
-                total_predictions += total
-                correct_predictions += correct
+                # accuracy
+                correct_predictions += (predicted_labels == query_labels).sum().item()
+                total_predictions += len(query_labels)
+
+                # F1-score
+                all_true_labels.extend(query_labels.cpu().numpy())
+                all_predicted_labels.extend(predicted_labels.cpu().numpy())
 
         val_accuracy = 100 * correct_predictions / total_predictions
-        print(f"Validation Accuracy: {val_accuracy:.2f}%")
+        val_f1 = f1_score(all_true_labels, all_predicted_labels, average="macro")
 
-        if val_accuracy > self.best_val_accuracy:
-            self.best_val_accuracy = val_accuracy
+        print(
+            f"Validation Accuracy: {val_accuracy:.2f}% | Validation F1-score: {val_f1:.4f}"
+        )
+
+        self.validation_f1_history.append(val_f1)
+        self.validation_accuracy_history.append(val_accuracy)
+        moving_avg_f1 = np.mean(self.validation_f1_history)
+        moving_avg_accuracy = np.mean(self.validation_accuracy_history)
+
+        improved = False
+        if moving_avg_f1 > self.best_val_f1:
+            self.best_val_f1 = moving_avg_f1
+            improved = True
+        if moving_avg_accuracy > self.best_val_accuracy:
+            self.best_val_accuracy = moving_avg_accuracy
+            improved = True
+
+        if improved:
             self.early_stopping_counter = 0
         else:
             self.early_stopping_counter += 1
-
         if self.early_stopping_counter >= self.patience:
-            print("Early stopping triggered. Training stopped.")
-            return True
+            print(
+                f"Early stopping triggered. No improvement in Accuracy/F1-score for {self.patience} epochs."
+            )
 
-        return False
+        return val_accuracy, val_f1
