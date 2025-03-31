@@ -126,7 +126,7 @@ class ModelTrainer:
         else:
             return self.criterion(outputs, labels)
 
-    def train(self, epochs=1, epochs_to_save=[5, 10, 15]):
+    def train(self, epochs=1, epochs_to_save=[5, 10, 15, 20]):
         """
         epochs: number of epochs to run
         epochs_to_save: list of epochs to save models
