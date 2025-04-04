@@ -176,3 +176,9 @@ cython_debug/
 # .ipynb files
 test_data_loading.ipynb
 check_mean.ipynb
+
+/saved_models
+/few_shot/results
+# trained models
+/trained_models
+/notebooks
