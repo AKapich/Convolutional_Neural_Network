@@ -2,16 +2,33 @@ import torchvision
 from torch.utils.data import DataLoader
 import torch
 import numpy as np
+
 gen = torch.Generator()
 gen.manual_seed(123)
 from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
 
+
 def seed(worker_id):
     np.random.seed(42 + worker_id)
-    
-def load_data(path: str, batch_size: int = 32, shuffle: bool = False, transform=None, num_workers: int = 8) -> DataLoader:
+
+
+def load_data(
+    path: str,
+    batch_size: int = 32,
+    shuffle: bool = False,
+    transform=None,
+    num_workers: int = 8,
+) -> DataLoader:
     dataset = torchvision.datasets.ImageFolder(root=path, transform=transform)
-    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers, pin_memory=True, generator=gen, worker_init_fn=seed)
+    return DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=num_workers,
+        pin_memory=True,
+        generator=gen,
+        worker_init_fn=seed,
+    )
 
 
 class AugmentedImageFolder(torchvision.datasets.ImageFolder):
@@ -29,10 +46,16 @@ class AugmentedImageFolder(torchvision.datasets.ImageFolder):
         else:
             image = self.transform(image)
         return image, target
-    
+
+
 class AugmentedImageFolderPretrained(AugmentedImageFolder):
     def __init__(self, root, transform, transform_augment, augment_prob=0.3):
-        super().__init__(root, transform=transform, transform_augment=transform_augment, augment_prob=augment_prob)
+        super().__init__(
+            root,
+            transform=transform,
+            transform_augment=transform_augment,
+            augment_prob=augment_prob,
+        )
 
     def __getitem__(self, index):
         path, target = self.samples[index]
@@ -42,34 +65,77 @@ class AugmentedImageFolderPretrained(AugmentedImageFolder):
             image = self.transform_augment(image)
         return image, target
 
-def load_data_augmented_pretrained(path: str, batch_size: int = 32, shuffle: bool = False, transform=None, augmentation_transform=None, 
-                          augment_prob: float = 0.3, num_workers: int = 8) -> DataLoader:
-    dataset = AugmentedImageFolderPretrained(root=path, transform=transform, transform_augment=augmentation_transform, augment_prob=augment_prob)
-    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers)
 
-def load_data_augmented(path: str,batch_size: int = 32,shuffle: bool = False, transform = None,augmentation_transform = None, augment_prob: float = 0.3, num_workers: int = 8) -> DataLoader:
-    dataset = AugmentedImageFolder(root=path, transform=transform, transform_augment=augmentation_transform, augment_prob=augment_prob)
-    return DataLoader(dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers,pin_memory=True, generator=gen, worker_init_fn=seed)
+def load_data_augmented_pretrained(
+    path: str,
+    batch_size: int = 32,
+    shuffle: bool = False,
+    transform=None,
+    augmentation_transform=None,
+    augment_prob: float = 0.3,
+    num_workers: int = 8,
+) -> DataLoader:
+    dataset = AugmentedImageFolderPretrained(
+        root=path,
+        transform=transform,
+        transform_augment=augmentation_transform,
+        augment_prob=augment_prob,
+    )
+    return DataLoader(
+        dataset, batch_size=batch_size, shuffle=shuffle, num_workers=num_workers
+    )
 
 
-def evaluate_model(model, dataloader, device, max_batches: int = None, metrics_to_compute = ["accuracy", "f1_score", "roc_auc"]) -> dict:
+def load_data_augmented(
+    path: str,
+    batch_size: int = 32,
+    shuffle: bool = False,
+    transform=None,
+    augmentation_transform=None,
+    augment_prob: float = 0.3,
+    num_workers: int = 8,
+) -> DataLoader:
+    dataset = AugmentedImageFolder(
+        root=path,
+        transform=transform,
+        transform_augment=augmentation_transform,
+        augment_prob=augment_prob,
+    )
+    return DataLoader(
+        dataset,
+        batch_size=batch_size,
+        shuffle=shuffle,
+        num_workers=num_workers,
+        pin_memory=True,
+        generator=gen,
+        worker_init_fn=seed,
+    )
+
+
+def evaluate_model(
+    model,
+    dataloader,
+    device,
+    max_batches: int = None,
+    metrics_to_compute=["accuracy", "f1_score", "roc_auc"],
+) -> dict:
     model.eval()
     all_labels = []
     all_predict = []
     all_prob = []
     batch = 0
-    
+
     with torch.no_grad():
         for images, labels in dataloader:
             if max_batches is not None and batch == max_batches:
                 break
             if batch % 10 == 0:
-                print(batch, end=' ')
+                print(batch, end=" ")
             images, labels = images.to(device), labels.to(device)
             outputs = model(images)
             if isinstance(outputs, tuple):
                 outputs = outputs[0]
-            
+
             if outputs.ndim == 1:
                 predictions = outputs
                 probabilities = None
@@ -85,15 +151,17 @@ def evaluate_model(model, dataloader, device, max_batches: int = None, metrics_t
     all_labels = np.array(all_labels)
     all_predict = np.array(all_predict)
     all_prob = np.array(all_prob)
-    
+
     acc = accuracy_score(all_labels, all_predict)
-    f1 = f1_score(all_labels, all_predict, average='macro')
-    
+    f1 = f1_score(all_labels, all_predict, average="macro")
+
     try:
-        roc_auc = roc_auc_score(all_labels, all_prob, multi_class='ovr', average='macro')
+        roc_auc = roc_auc_score(
+            all_labels, all_prob, multi_class="ovr", average="macro"
+        )
     except Exception as e:
         roc_auc = None
-    
+
     return {"accuracy": acc, "f1_score": f1, "roc_auc": roc_auc}
 
 

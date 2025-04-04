@@ -4,7 +4,7 @@ from src.models.our_model import OurModel
 from src.models.pretrained_models import VGG16Pretrained, ResNetPretrained
 from src.model_trainer import ModelTrainer
 from src.utils import load_data
-from src.transformations import normalized_simple_transform
+from src.transformations import *
 import os
 import itertools as it
 import logging
@@ -29,6 +29,28 @@ model_mapping = {
     "custom": OurModel,
 }
 
+transformation_mapping = {
+    (None, False): normalized_simple_transform,
+    ("rotation", False): random_rotation_transform,
+    ("flip", False): horizontal_flip_transform,
+    ("color_jitter", False): color_jitter_transform,
+    ("cutout", False): cutout_transform,
+    ("combined", False): combined_augmentation_transform,
+    ("rotation", True): random_rotation_transform_resized,
+    ("flip", True): horizontal_flip_transform_resized,
+    ("color_jitter", True): color_jitter_transform_resized,
+    ("cutout", True): cutout_transform_resized,
+    ("combined", True): combined_augmentation_transform_resized,
+}
+
+
+def initialize_model(model_name, model_config, device):
+    if model_name == "custom":
+        return model_mapping[model_name](dropout=model_config["dropout"])
+    return model_mapping[model_name](
+        device=device, num_classes=model_config["num_classes"]
+    )
+
 
 def main(args):
     device_str = "cuda" if torch.cuda.is_available() else "cpu"
@@ -36,25 +58,20 @@ def main(args):
     logging.info(f"Using device: {device}")
     torch.set_num_threads(2)
 
-    def initialize_model(model_name, model_config, device):
-        if model_name == "custom":
-            return model_mapping[model_name](dropout=model_config["dropout"])
-        return model_mapping[model_name](
-            device=device, num_classes=model_config["num_classes"]
-        )
+    transformation = transformation_mapping[(args.data_augmentation, args.resize)]
 
     train_loader = load_data(
         os.path.join(os.path.dirname(__file__), "data", "train"),
         batch_size=128,
         shuffle=True,
-        transform=normalized_simple_transform(),
+        transform=transformation(),
         num_workers=1,
     )
     valid_loader = load_data(
         os.path.join(os.path.dirname(__file__), "data", "valid"),
         batch_size=512,
         shuffle=True,
-        transform=normalized_simple_transform(),
+        transform=transformation(),
         num_workers=1,
     )
 
@@ -140,7 +157,7 @@ def main(args):
             optimizer_type=optimizer_type,
             learning_rate=learning_rate,
             log_file=f"{args.model}_{optimizer_type}_{learning_rate}.json",
-            save_dir=f"./trained_models/{args.model}",
+            save_dir=f"./trained_models/{args.model}/{args.data_augmentation}/",
             max_batches=None,
             valid_loader=valid_loader,
         )
@@ -157,11 +174,6 @@ if __name__ == "__main__":
         default="resnet",
     )
     argparser.add_argument(
-        "--hyperparameter_optimization",
-        action="store_true",
-        help="Boolean flag to enable hyperparameter optimization instead of casual training",
-    )
-    argparser.add_argument(
         "--model_config",
         type=str,
         default="example_config.json",
@@ -174,5 +186,29 @@ if __name__ == "__main__":
         required=True,
         help="Number of epochs for training",
     )
-
+    argparser.add_argument(
+        "--hyperparameter_optimization",
+        action="store_true",
+        help="Boolean flag to enable hyperparameter optimization instead of casual training",
+    )
+    argparser.add_argument(
+        "--data_augmentation",
+        choices=[
+            None,
+            "rotation",
+            "flip",
+            "color_jitter",
+            "cutout",
+            "combined",
+            "resize",
+        ],
+        default=None,
+        type=str,
+        help="Data augmentation technique to be used",
+    )
+    argparser.add_argument(
+        "--resize",
+        action="store_true",
+        help="Use resized images for training",
+    )
     main(args=argparser.parse_args())
