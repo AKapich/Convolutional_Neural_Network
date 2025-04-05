@@ -58,3 +58,13 @@ The command to run:
 ```bash
 python train_few_shot.py --model <model_name> --n_epochs <epochs> --n_way <n_way> --n_shot <n_shot> --n_query <n_query> --n_evaluation_tasks <n_evaluation_tasks> --n_train_tasks <n_train_tasks> --n_training_episodes <n_training_episodes> --checkpoint_path <checkpoint_path>
 ```
+
+
+### Model evaluation
+
+To evaluate the model, you can use the `evaluate.py` script. This script allows you to test the trained model on the CINIC10 dataset and obtain accuracy metrics.
+
+Parameters to be passed are 
+- `--model`: The type of the model to evaluate (`resnet`, `vgg16` or `custom` model based on GoogLeNet).
+- `--model_path`: Path to the trained model checkpoint.
+- `--output_path`: Path to save the evaluation results.

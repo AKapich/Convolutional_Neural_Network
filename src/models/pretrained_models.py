@@ -4,7 +4,7 @@ from torch import Tensor
 
 
 class VGG16Pretrained(nn.Module):
-    def __init__(self, num_classes=10, device="cuda", dropout=0.5):
+    def __init__(self, num_classes=10, device="cpu", dropout=0.5):
         super(VGG16Pretrained, self).__init__()
         self.device = device
         self.model = vgg16(pretrained=True)
