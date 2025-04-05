@@ -159,31 +159,37 @@ def cutout_transform(
 
 
 def random_rotation_transform_resized(degrees: int = 15) -> transforms.Compose:
-    return transforms.Compose([
-        transforms.Resize((224, 224)),
-        RandomRotation(degrees=degrees)
-    ])
+    return transforms.Compose(
+        [transforms.Resize((224, 224)), RandomRotation(degrees=degrees)]
+    )
+
 
 def horizontal_flip_transform_resized(p: float = 0.5) -> transforms.Compose:
-    return transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.RandomHorizontalFlip(p=p),
-        transforms.ToTensor()
-    ])
+    return transforms.Compose(
+        [
+            transforms.Resize((224, 224)),
+            transforms.RandomHorizontalFlip(p=p),
+            transforms.ToTensor(),
+        ]
+    )
+
 
 def color_jitter_transform_resized(
     brightness: float = 0.2,
     contrast: float = 0.2,
     saturation: float = 0.2,
-    hue: float = 0.1
+    hue: float = 0.1,
 ) -> transforms.Compose:
-    return transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ColorJitter(
-            brightness=brightness, contrast=contrast, saturation=saturation, hue=hue
-        ),
-        transforms.ToTensor()
-    ])
+    return transforms.Compose(
+        [
+            transforms.Resize((224, 224)),
+            transforms.ColorJitter(
+                brightness=brightness, contrast=contrast, saturation=saturation, hue=hue
+            ),
+            transforms.ToTensor(),
+        ]
+    )
+
 
 def combined_augmentation_transform_resized(
     degrees: int = 15,
@@ -191,26 +197,28 @@ def combined_augmentation_transform_resized(
     brightness: float = 0.2,
     contrast: float = 0.2,
     saturation: float = 0.2,
-    hue: float = 0.1
+    hue: float = 0.1,
 ) -> transforms.Compose:
-    return transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.RandomRotation(degrees=degrees),
-        transforms.RandomHorizontalFlip(p=p),
-        transforms.ColorJitter(
-            brightness=brightness,
-            contrast=contrast,
-            saturation=saturation,
-            hue=hue
-        ),
-        transforms.ToTensor()
-    ])
+    return transforms.Compose(
+        [
+            transforms.Resize((224, 224)),
+            transforms.RandomRotation(degrees=degrees),
+            transforms.RandomHorizontalFlip(p=p),
+            transforms.ColorJitter(
+                brightness=brightness, contrast=contrast, saturation=saturation, hue=hue
+            ),
+            transforms.ToTensor(),
+        ]
+    )
+
 
 def cutout_transform_resized(
     num_holes: int = 1, hole_size: tuple[int, int] = (8, 8)
 ) -> transforms.Compose:
-    return transforms.Compose([
-        transforms.Resize((224, 224)),
-        transforms.ToTensor(),
-        Cutout(num_holes, hole_size)
-    ])
+    return transforms.Compose(
+        [
+            transforms.Resize((224, 224)),
+            transforms.ToTensor(),
+            Cutout(num_holes, hole_size),
+        ]
+    )

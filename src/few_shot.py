@@ -89,6 +89,7 @@ class FewShotTrainer:
         self,
         model: nn.Module,
         criterion=nn.CrossEntropyLoss(),
+        checkpoint_path: str = None,
         device: torch.device = torch.device("cpu"),
         train_loader: DataLoader = None,
         val_loader: DataLoader = None,
@@ -104,6 +105,7 @@ class FewShotTrainer:
         self.val_loader = val_loader
         self.test_loader = test_loader
         self.patience = patience
+        self.checkpoint_path = checkpoint_path
 
         # Best metrics
         self.best_val_accuracy = 0.0
@@ -295,6 +297,8 @@ class FewShotTrainer:
 
         if improved:
             self.early_stopping_counter = 0
+            if self.checkpoint_path:
+                torch.save(self.model.state_dict(), self.checkpoint_path)
         else:
             self.early_stopping_counter += 1
         if self.early_stopping_counter >= self.patience:
