@@ -35,3 +35,26 @@ Below there's an overview:
 5. Gather the results 
 The results will be saved in the `trained_models` directory. The results contain model checkpoints along with the log files for monitoring training process. 
 
+
+### Few Shot Learning
+
+For few shot learning, the `train_few_shot.py` script can be used. It allows training a model with few shot learning techniques. The script accepts different parameters than the aforementioned training script.
+
+The parameters are as follows:
+- `--model`: The type of the model to train (`resnet`, `vgg16` or `custom` model based on GoogLeNet).
+- `--n_epochs`: The number of epochs to train the model. Default is 10. Each epoch consists of `N` training episodes, whereas `N` is set in the `--n_training_episodes` parameter.
+- `--n_way`: The number of classes in a task. Default is 5.
+- `--n_shot`: Number of images per class in the support set. Default is 4.
+- `--n_query`: Number of images per class in the query set. Default is 5.
+- `--n_evaluation_tasks': Number of tasks to evaluate the model. Default is 50.
+- `--n_train_tasks`: Number of tasks to train the model. Default is 100.
+- `--n_training_episodes`: Number of training episodes. Default is 100.
+- `--checkpoint_path`: Path to the checkpoint file.
+
+The numbers were set low since originally the script was  run on CPU.
+
+The command to run:
+
+```bash
+python train_few_shot.py --model <model_name> --n_epochs <epochs> --n_way <n_way> --n_shot <n_shot> --n_query <n_query> --n_evaluation_tasks <n_evaluation_tasks> --n_train_tasks <n_train_tasks> --n_training_episodes <n_training_episodes> --checkpoint_path <checkpoint_path>
+```
