@@ -35,6 +35,7 @@ Below there's an overview:
 5. Gather the results 
 The results will be saved in the `trained_models` directory. The results contain model checkpoints along with the log files for monitoring training process. 
 
+## Other functionalities
 
 ### Few Shot Learning
 
@@ -68,3 +69,23 @@ Parameters to be passed are
 - `--model`: The type of the model to evaluate (`resnet`, `vgg16` or `custom` model based on GoogLeNet).
 - `--model_path`: Path to the trained model checkpoint.
 - `--output_path`: Path to save the evaluation results.
+
+```bash
+python evaluate.py --model <model_name> -- model_path <model_path> --output_path <output_path>
+```
+
+
+### Ensemble usage
+Combined knowledge of multiple models can be used to improve the performance. The `ensemble.py` script allows you to combine the predictions of multiple models with both hard voting (*majority voting*) and soft voting (*weighted average of probabilities*).
+
+The parameters are as follows:
+The parameters are as follows:
+- `--resnet_model_path`: Path to the trained ResNet model checkpoint.
+- `--vgg_model_path`: Path to the trained VGG16 model checkpoint.
+- `--custom_model_path`: Path to the trained custom model checkpoint.
+- `--output_path`: Path to save the ensemble predictions.
+- `--ensemble_type`: Type of ensemble to use. Options are `hard` (majority voting) and `soft` (weighted average of probabilities). Defaults to `hard`.
+
+````bash
+python ensemble.py --resnet_model_path <resnet_model_path> --vgg_model_path <vgg_model_path> --custom_model_path <custom_model_path> --output_path <output_path> --ensemble_type <ensemble_type>
+````

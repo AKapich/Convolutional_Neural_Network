@@ -177,8 +177,10 @@ cython_debug/
 test_data_loading.ipynb
 check_mean.ipynb
 
+
+# auxiliary folders
 /saved_models
 /few_shot
-# trained models
 /trained_models
 /notebooks
+/images
