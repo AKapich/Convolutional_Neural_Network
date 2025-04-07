@@ -179,7 +179,6 @@ check_mean.ipynb
 
 
 # auxiliary folders
-/saved_models
 /few_shot
 /trained_models
 /notebooks
